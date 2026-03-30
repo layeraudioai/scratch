@@ -98,9 +98,6 @@ if not "%~2"=="" (
 echo Building %SONG% with %SELECTED% backend...
 echo --------------------------------------
 
-REM Change to parent directory
-cd /d "%~dp0.."
-
 REM Call make with the selected parameters
 make SONG="%SONG%" AUDIO_BACKEND="%SELECTED%" CC="%CC_CMD%"
 
