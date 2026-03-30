@@ -4,18 +4,44 @@ REM Batch version of compile.sh
 
 setlocal enabledelayedexpansion
 
-REM Get the song name from first argument
-set "SONG=%~1"
-if "%SONG%"=="" set "SONG=scratch"
-
-REM Remove .c extension if present
-if not "%SONG%"=="" (
-    set "SONG=%SONG:.c=%"
-)
-
 cls
 echo === MML Song Encoder Build System ===
 echo.
+
+echo Available songs:
+set "SONG_COUNT=0"
+for %%f in (*.c) do (
+    set "FILE_TEMP=%%f"
+    if /i not "!FILE_TEMP!"=="mmlplay.c" (
+        echo   [!SONG_COUNT!] %%~nf
+        set "SONG_LIST[!SONG_COUNT!]=%%~nf"
+        set /a SONG_COUNT+=1
+    )
+)
+set /a MAX_SONG_IDX=%SONG_COUNT% - 1
+set /p "s_choice=Select song [0-%MAX_SONG_IDX%] (default 0): "
+if "%s_choice%"=="" set "s_choice=0"
+set "SONG=!SONG_LIST[%s_choice%]!"
+
+echo Select Target Platform:
+echo   [0] linux
+echo   [1] windows
+echo   [2] nintendo
+set /p "p_choice=Select [0-2] (default 0): "
+if "%p_choice%"=="" set "p_choice=0"
+if "%p_choice%"=="0" set "PLATFORM=linux"
+if "%p_choice%"=="1" set "PLATFORM=windows"
+if "%p_choice%"=="2" set "PLATFORM=nintendo"
+
+echo Select Target Architecture:
+echo   [0] amd64
+echo   [1] arm
+echo   [2] arm64
+set /p "a_choice=Select [0-2] (default 0): "
+if "%a_choice%"=="" set "a_choice=0"
+if "%a_choice%"=="0" set "ARCH=amd64"
+if "%a_choice%"=="1" set "ARCH=arm"
+if "%a_choice%"=="2" set "ARCH=arm64"
 
 echo Scanning for available audio libraries...
 
@@ -89,17 +115,40 @@ if %AVAILABLE_COUNT% equ 0 (
     )
 )
 
-REM Handle compiler prefix (e.g. for cross-compiling)
-set "CC_CMD=gcc"
-if not "%~2"=="" (
-    set "CC_CMD=%~2cc"
+set "EXT="
+if "%PLATFORM%"=="windows" set "EXT=.exe"
+if "%PLATFORM%"=="nintendo" (
+    if "%ARCH%"=="arm" set "EXT=.cia"
+    if "%ARCH%"=="arm64" set "EXT=.nsp"
+    if not "%ARCH%"=="arm" if not "%ARCH%"=="arm64" set "EXT=.nro"
 )
 
-echo Building %SONG% with %SELECTED% backend...
+set "backend_fn=%SELECTED%"
+if /i "%SELECTED%"=="SDL3" set "backend_fn=sdl3"
+if /i "%SELECTED%"=="SDL2" set "backend_fn=sdl2"
+if /i "%SELECTED%"=="SDL" set "backend_fn=sdl"
+if /i "%SELECTED%"=="WINMM" set "backend_fn=winmm"
+if /i "%SELECTED%"=="ALSA" set "backend_fn=alsa"
+if /i "%SELECTED%"=="DUMMY" set "backend_fn=dummy"
+
+set "OUTFILE=%PLATFORM%_%ARCH%_%backend_fn%_%SONG%%EXT%"
+
+REM Handle compiler prefix (e.g. for cross-compiling)
+if not "%~2"=="" (
+    set "CC_CMD=%~2cc"
+) else (
+    if "%PLATFORM%"=="nintendo" (
+        if "%ARCH%"=="arm" (set "CC_CMD=arm-none-eabi-gcc") else (set "CC_CMD=aarch64-none-elf-gcc")
+    ) else (
+        set "CC_CMD=gcc"
+    )
+)
+
+echo Building %OUTFILE% with %SELECTED% backend...
 echo --------------------------------------
 
 REM Call make with the selected parameters
-make SONG="%SONG%" AUDIO_BACKEND="%SELECTED%" CC="%CC_CMD%"
+make SONG="%SONG%" AUDIO_BACKEND="%SELECTED%" CC="%CC_CMD%" PLATFORM="%PLATFORM%" ARCH="%ARCH%" OUTFILE="%OUTFILE%"
 
 echo --------------------------------------
 
