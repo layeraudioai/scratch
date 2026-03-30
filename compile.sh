@@ -1,6 +1,5 @@
 #!/bin/bash
 # Interactive Song Compiler
-cd "$(dirname "$0")/.."
 clear
 echo "=== MML Song Encoder Build System ==="
 

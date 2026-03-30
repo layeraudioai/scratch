@@ -114,7 +114,10 @@ void play_note(char note, int sharp, int octave, int length, int tempo, int volu
     short *buffer = calloc(num_samples, sizeof(short));
     
     if (toupper(note) == 'R') {
-        printf("  [REST]  Dur: %4.3fs\n", duration);
+        printf(" R   ---- [");
+        for (int i = 36; i < 96; i++) printf(i % 12 == 0 ? "|" : " ");
+        printf("]\n");
+
 #if defined(USE_ALSA)
         snd_pcm_writei(pcm_handle, buffer, num_samples);
 #elif defined(USE_SDL3)
@@ -144,13 +147,26 @@ void play_note(char note, int sharp, int octave, int length, int tempo, int volu
     // MIDI C4 is 60. A4 is 69.
     int midi_note = (octave + 1) * 12 + semitone;
     double freq = 440.0 * pow(2.0, (double)(midi_note - 69) / 12.0);
-    int amplitude = (int)((volume / 127.0) * 32767.0 * 0.5);
+    int amplitude = (int)((volume / 127.0) * 32767.0 * 0.9);
 
-    printf("  [NOTE]  %c%s Oct: %d Len: %2d Freq: %7.2fHz Vol: %d\n", 
-           toupper(note), (sharp > 0 ? "+" : (sharp < 0 ? "-" : " ")), octave, length, freq, volume);
+    printf("%3d O%d %c%c [", midi_note, octave, toupper(note), (sharp > 0 ? '#' : (sharp < 0 ? 'b' : ' ')));
+    for (int i = 36; i < 96; i++) {
+        if (i == midi_note) printf("#");
+        else if (i % 12 == 0) printf("|");
+        else printf(".");
+    }
+    printf("]\n");
+
+    // Linear envelope to prevent clicking at note boundaries
+    int fade_samples = (int)(SAMPLE_RATE * 0.005); // 5ms fade
+    if (fade_samples > num_samples / 2) fade_samples = num_samples / 2;
 
     for (int i = 0; i < num_samples; i++) {
-        buffer[i] = (short)(amplitude * sin(2.0 * M_PI * freq * i / SAMPLE_RATE));
+        double env = 1.0;
+        if (i < fade_samples) env = (double)i / (double)fade_samples;
+        else if (i > num_samples - fade_samples) env = (double)(num_samples - i) / (double)fade_samples;
+        
+        buffer[i] = (short)(amplitude * env * sin(2.0 * M_PI * freq * i / SAMPLE_RATE));
     }
 
 #if defined(USE_ALSA)
@@ -222,7 +238,7 @@ void parse_and_play_mml(const char* mml, int volume) {
 }
 
 void play_track(int track_id, const char* mml, int volume) {
-    printf("[Track %2d] [Vol %2d] MML: %s\n", track_id, volume, mml);
+    printf("\n>> TRK %d (VOL %d)\n", track_id, volume);
     parse_and_play_mml(mml, volume);
 }
 
@@ -242,7 +258,6 @@ int main(int argc, char** argv) {
             mml_ptr += 5;
             char* nl = strchr(mml_ptr, '\n'); 
             if (nl) *nl = '\0';
-            printf("\n>>> Parsing Track: %s\n", mml_ptr);
             parse_and_play_mml(mml_ptr, 100);
         } else if (strstr(line, "--- Sequence Step")) {
             printf("\n%s", line);

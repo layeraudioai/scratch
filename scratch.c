@@ -56,7 +56,7 @@ int main() {
         int tempo = abs(rnd_range(6, 66) - rnd_range(5, 420)) + 1;        
         // BGMSET phase: Compile the pattern library with randomized octaves
         for (int b = 0; b < TB; b++) {
-            int octave = rnd_range(1, 3) + 1; // Assuming STR$(RND(6,3)+1) was a typo for RND(3)+1
+            int octave = rnd_range(4, 6); 
             snprintf(compiled_bgm[b], MAX_MML_LEN, "T%dO%d%s%s%s%s", 
                      tempo, octave, S[b][0], S[b][1], S[b][2], S[b][3]);
         }
@@ -71,8 +71,6 @@ int main() {
             }
 
             for (int j = 0; j < L; j++) {
-                printf("\n--- Sequence Step %d:%d ---\n", i, j);
-
                 // BGMPLAY 0 (The master track)
                 play_track(0, compiled_bgm[i], 47);
                 
